@@ -2,676 +2,112 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>한글·숫자 스티커 놀이 (숫자합치기 기능탑재)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>즐거운 놀이 시간!</title>
     <style>
-        :root {
-            --bg-color: #f5f7ff;
-            --primary-color: #722ed1;
-            --secondary-color: #13c2c2;
-            --accent-color: #eb2f96;
-            --border-color: #c9d6ff;
+        /* 기본 배경 설정 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f4f8;
+            font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+            overflow: hidden;
         }
 
-        html, body {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-            background: var(--bg-color); 
-            overflow: hidden; 
-            position: fixed; 
-            top: 0; left: 0; right: 0; bottom: 0;
-            touch-action: none; 
-            overscroll-behavior: none; 
-            -webkit-user-select: none;
+        /* 버튼 컨테이너 */
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            width: 85%;
+            max-width: 600px;
+        }
+
+        /* 공통 버튼 스타일 */
+        .play-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 120px; /* 버튼 높이 고정 */
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            border: none;
         }
 
-        .top {
-            background: #fff; padding: 10px;
-            border-bottom: 3px solid var(--border-color);
-            display: flex; flex-direction: column; align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            z-index: 10;
-            height: 35vh; 
-            overflow-y: auto; 
-            touch-action: pan-y; 
-            -webkit-overflow-scrolling: touch; 
+        /* 첫 번째 버튼: 한글/숫자 놀이 */
+        .btn-hangul {
+            background-color: #ff5a5f;
+            box-shadow: 0 12px 0 #cf484c;
         }
 
-        .row {
-            display: flex; flex-wrap: wrap; justify-content: center;
-            margin-bottom: 8px; gap: 6px;
-            width: 100%; 
+        /* 두 번째 버튼: 시계 놀이 */
+        .btn-clock {
+            background-color: #3498db;
+            box-shadow: 0 12px 0 #2980b9;
         }
 
-        .letter {
-            font-size: calc(1.8vh + 1.2vw); user-select: none; cursor: pointer;
-            padding: 4px 8px; border-radius: 8px; background: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: transform 0.1s;
-            border: 1px solid #eee;
-            touch-action: none; 
+        /* 클릭 시 애니메이션 */
+        .play-button:active {
+            transform: translateY(8px);
+            box-shadow: 0 4px 0 #00000022;
         }
 
-        .letter:active { transform: scale(0.9); background: #f0f0f0; }
-        .number { color: #1890ff; font-weight: bold; }
-        .operator { color: #52c41a; font-weight: bold; }
-
-        .board {
-            position: relative; width: 100%; height: 65vh;
-            background: #fff; overflow: hidden;
-            touch-action: none; 
+        /* 페이지 전환 효과 */
+        .fade-out {
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.4s ease-in;
         }
 
-        .btn-group {
-            position: absolute; top: 15px; left: 15px; right: 15px;
-            display: flex; gap: 8px; z-index: 1000; flex-wrap: wrap;
-        }
-
-        .btn {
-            flex: 1; height: 45px; border: none; border-radius: 12px;
-            color: #fff; font-weight: bold; font-size: 0.9rem;
-            cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            white-space: nowrap; min-width: 60px;
-        }
-
-        .calc-btn { background: var(--primary-color); }
-        .read-btn { background: var(--secondary-color); }
-        .debug-btn { background: #faad14; }
-        .result-btn { background: var(--accent-color); }
-        .reset-btn { background: #f5222d; max-width: 60px; }
-
-        .sticker {
-            position: absolute; width: 80px; height: 80px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: calc(4vh + 2vw); user-select: none;
-            cursor: grab; transition: transform 0.05s;
-            z-index: 100;
-            touch-action: none; 
-            border: 3px solid transparent; 
-            border-radius: 12px;
-            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; 
-        }
-
-        .sticker:active { cursor: grabbing; transform: scale(1.1); }
-        .result { color: var(--accent-color); font-weight: bold; pointer-events: auto; }
-
-        .role-cho { border-color: #ff4d4f !important; background: rgba(255, 77, 79, 0.1); }
-        .role-jung { border-color: #1890ff !important; background: rgba(24, 144, 255, 0.1); }
-        .role-jong { border-color: #52c41a !important; background: rgba(82, 196, 26, 0.1); }
-
-        .trash-can {
-            position: absolute; bottom: 20px; right: 20px;
-            width: 70px; height: 70px;
-            background: #fff; border: 3px solid #ff4d4f; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 35px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            z-index: 500; transition: transform 0.2s;
-            pointer-events: none;
-        }
-        .trash-can.hover { transform: scale(1.2); background: #fff1f0; }
-
-        .group-box {
-            position: absolute; border: 3px solid rgba(114, 46, 209, 0.5);
-            border-radius: 16px; background: rgba(114, 46, 209, 0.05);
-            pointer-events: none; z-index: 50;
-        }
-        
-        .debug-box {
-             position: absolute; border: 1px dashed #999; pointer-events: none; z-index: 40;
+        /* PC용 레이아웃 */
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+                max-width: 900px;
+            }
+            .play-button {
+                flex: 1;
+                height: 200px;
+                font-size: 2.8rem;
+            }
         }
     </style>
 </head>
 <body>
 
-<div class="top" id="topFrame">
-    <div class="row" id="consonants"></div>
-    <div class="row" id="vowels"></div>
-    <div class="row" id="numbers"></div>
-</div>
+    <div class="container" id="mainContainer">
+        <a href="hangul-game-v9-3.html" class="play-button btn-hangul" onclick="transitionPage(event, this.href)">
+            한글/숫자 놀이
+        </a>
 
-<div class="board" id="board">
-    <div class="btn-group">
-        <button class="btn calc-btn" id="calcBtn">계산</button>
-        <button class="btn read-btn" id="readBtn">읽기</button>
-        <button class="btn debug-btn" id="debugBtn">영역</button>
-        <button class="btn result-btn" id="debugResultBtn">미리보기</button>
-        <button class="btn reset-btn" id="resetBtn">삭제</button>
+        <a href="clocknori_V2-1.html" class="play-button btn-clock" onclick="transitionPage(event, this.href)">
+            시계 놀이
+        </a>
     </div>
-    <div id="trashCan" class="trash-can">🗑️</div>
-</div>
 
-<script>
-    const board = document.getElementById("board");
-    const trashCan = document.getElementById("trashCan");
-    let debugOn = false;
-    let detailedDebugOn = false; 
-    let topZIndex = 100;
+    <script>
+        function transitionPage(event, url) {
+            event.preventDefault();
+            
+            const container = document.getElementById('mainContainer');
+            container.classList.add('fade-out');
 
-    const consonants = "ㄱ ㄴ ㄷ ㄹ ㅁ ㅂ ㅅ ㅇ ㅈ ㅊ ㅋ ㅌ ㅍ ㅎ ㄲ ㄸ ㅃ ㅆ ㅉ".split(" ");
-    const vowels = "ㅏ ㅑ ㅓ ㅕ ㅗ ㅛ ㅜ ㅠ ㅡ ㅣ ㅐ ㅔ ㅒ ㅖ".split(" ");
-    const numbers = "0 1 2 3 4 5 6 7 8 9".split(" ");
-    const operators = ["+", "-", "="];
-
-    const jamoNames = {
-        "ㄱ":"기역", "ㄴ":"니은", "ㄷ":"디귿", "ㄹ":"리을", "ㅁ":"미음", "ㅂ":"비읍", "ㅅ":"시옷", "ㅇ":"이응", "ㅈ":"지읒", "ㅊ":"치읓", "ㅋ":"키읔", "ㅌ":"키읕", "ㅍ":"피읖", "ㅎ":"히읗",
-        "ㄲ":"쌍기역", "ㄸ":"쌍디귿", "ㅃ":"쌍비읍", "ㅆ":"쌍시옷", "ㅉ":"쌍지읒",
-        "ㅏ":"아", "ㅑ":"야", "ㅓ":"어", "ㅕ":"여", "ㅗ":"오", "ㅛ":"요", "ㅜ":"우", "ㅠ":"유", "ㅡ":"으", "ㅣ":"이", "ㅐ":"애", "ㅔ":"에", "ㅒ":"얘", "ㅖ":"예",
-        "ㅘ":"와", "ㅙ":"왜", "ㅚ":"외", "ㅝ":"워", "ㅞ":"웨", "ㅟ":"위", "ㅢ":"의",
-        "+":"더하기", "-":"빼기", "=":"는"
-    };
-
-    const DOUBLE_VOWELS = { "ㅗㅏ":"ㅘ", "ㅗㅐ":"ㅙ", "ㅗㅣ":"ㅚ", "ㅜㅓ":"ㅝ", "ㅜㅔ":"ㅞ", "ㅜㅣ":"ㅟ", "ㅡㅣ":"ㅢ" };
-    const DOUBLE_JONG = { "ㄱㅅ":"ㄳ", "ㄴㅈ":"ㄵ", "ㄴㅎ":"ㄶ", "ㄹㄱ":"ㄺ", "ㄹㅁ":"ㄻ", "ㄹㅂ":"ㄼ", "ㄹㅅ":"ㄽ", "ㄹㅌ":"ㄾ", "ㄹㅍ":"ㄿ", "ㄹㅎ":"ㅀ", "ㅂㅅ":"ㅄ" };
-
-    const CHO_TABLE = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
-    const JUNG_TABLE = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
-    const JONG_TABLE = ["","ㄱ","ㄲ","ㄳ","ㄴ","ㄵ","ㄶ","ㄷ","ㄹ","ㄺ","ㄻ","ㄼ","ㄽ","ㄾ","ㄿ","ㅀ","ㅁ","ㅂ","ㅄ","ㅅ","ㅆ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
-
-    function makePalette(chars, container, cls) {
-        chars.forEach(c => {
-            const el = document.createElement("div");
-            el.className = "letter " + (cls || "");
-            el.textContent = c;
-            container.appendChild(el);
-            el.addEventListener("pointerdown", e => startDrag(e, c));
-        });
-    }
-
-    makePalette(consonants, document.getElementById("consonants"));
-    makePalette(vowels, document.getElementById("vowels"));
-    makePalette(numbers, document.getElementById("numbers"), "number");
-    makePalette(operators, document.getElementById("numbers"), "operator");
-
-    document.addEventListener('touchmove', function(e) {
-        if (e.target.closest('.sticker') || e.target.closest('.board')) {
-            e.preventDefault();
-            return;
+            setTimeout(() => {
+                window.location.href = url;
+            }, 400);
         }
-        const topArea = e.target.closest('.top');
-        if (topArea) {
-            if (e.target.closest('.letter')) {
-                e.preventDefault();
-                return;
-            }
-            if (topArea.scrollHeight > topArea.clientHeight) {
-                return; 
-            }
-        }
-        if (e.cancelable) {
-            e.preventDefault();
-        }
-    }, { passive: false });
+    </script>
 
-    function speakText(text) {
-        speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'ko-KR';
-        speechSynthesis.speak(msg);
-    }
-
-    function isOverTrash(x, y) {
-        const tr = trashCan.getBoundingClientRect();
-        return (x > tr.left && x < tr.right && y > tr.top && y < tr.bottom);
-    }
-
-    function handleDoubleTouch(s) {
-        let lastTap = 0;
-        s.addEventListener('touchstart', (e) => {
-            const now = Date.now();
-            if (now - lastTap < 300) {
-                e.preventDefault(); 
-                s.remove();
-                speakText("삭제");
-                updateGroups();
-            }
-            lastTap = now;
-        }, { passive: false });
-    }
-
-    function startDrag(e, char) {
-        e.preventDefault(); 
-        speakText(jamoNames[char] || char);
-        const s = document.createElement("div");
-        s.className = "sticker"; s.textContent = char;
-        s.style.zIndex = ++topZIndex;
-        document.body.appendChild(s);
-
-        const move = (ev) => {
-            ev.preventDefault();
-            const clientX = ev.clientX || (ev.touches && ev.touches[0].clientX);
-            const clientY = ev.clientY || (ev.touches && ev.touches[0].clientY);
-            
-            s.style.left = clientX - 40 + "px";
-            s.style.top = clientY - 40 + "px";
-            
-            if(isOverTrash(clientX, clientY)) trashCan.classList.add('hover');
-            else trashCan.classList.remove('hover');
-        };
-
-        const up = (ev) => {
-            document.removeEventListener("pointermove", move);
-            document.removeEventListener("pointerup", up);
-            trashCan.classList.remove('hover');
-            
-            const clientX = ev.clientX || (ev.changedTouches && ev.changedTouches[0].clientX);
-            const clientY = ev.clientY || (ev.changedTouches && ev.changedTouches[0].clientY);
-
-            const b = board.getBoundingClientRect();
-            if (clientY < b.top || clientX < b.left || clientX > b.right || clientY > b.bottom || isOverTrash(clientX, clientY)) {
-                s.remove(); 
-                if(isOverTrash(clientX, clientY)) speakText("버렸어요");
-                updateGroups(); return;
-            }
-            
-            board.appendChild(s);
-            s.style.left = clientX - b.left - 40 + "px";
-            s.style.top = clientY - b.top - 40 + "px";
-            enableMove(s); 
-            handleDoubleTouch(s);
-            updateGroups();
-        };
-        document.addEventListener("pointermove", move, { passive: false });
-        document.addEventListener("pointerup", up);
-    }
-
-    function enableMove(s) {
-        s.onpointerdown = (e) => {
-            e.preventDefault(); e.stopPropagation();
-            s.style.zIndex = ++topZIndex;
-            speakText(jamoNames[s.textContent] || s.textContent);
-            
-            const r = s.getBoundingClientRect();
-            const b = board.getBoundingClientRect();
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            
-            const dx = clientX - r.left;
-            const dy = clientY - r.top;
-            
-            const move = (ev) => {
-                ev.preventDefault(); 
-                const cx = ev.clientX || (ev.touches && ev.touches[0].clientX);
-                const cy = ev.clientY || (ev.touches && ev.touches[0].clientY);
-
-                s.style.left = cx - b.left - dx + "px";
-                s.style.top = cy - b.top - dy + "px";
-                if(isOverTrash(cx, cy)) trashCan.classList.add('hover');
-                else trashCan.classList.remove('hover');
-            };
-            
-            const up = (ev) => {
-                document.removeEventListener('pointermove', move);
-                document.removeEventListener('pointerup', up);
-                trashCan.classList.remove('hover');
-                
-                const cx = ev.clientX || (ev.changedTouches && ev.changedTouches[0].clientX);
-                const cy = ev.clientY || (ev.changedTouches && ev.changedTouches[0].clientY);
-
-                if (cy < b.top || cx < b.left || cx > b.right || cy > b.bottom || isOverTrash(cx, cy)) {
-                    s.remove();
-                    if(isOverTrash(cx, cy)) speakText("버렸어요");
-                }
-                updateGroups();
-            };
-            document.addEventListener('pointermove', move, { passive: false });
-            document.addEventListener('pointerup', up);
-        };
-    }
-
-    function near(a, b) {
-        const r1 = a.getBoundingClientRect();
-        const r2 = b.getBoundingClientRect();
-        const cx1 = r1.left + r1.width / 2;
-        const cy1 = r1.top + r1.height / 2;
-        const cx2 = r2.left + r2.width / 2;
-        const cy2 = r2.top + r2.height / 2;
-        
-        // 숫자 그룹핑을 위해 가로 거리 여유 (충분히 넓게)
-        return Math.abs(cx1 - cx2) < 140 && Math.abs(cy1 - cy2) < 110;
-    }
-
-    function getGroups() {
-        const stickers = [...document.querySelectorAll('.sticker')];
-        const visited = new Set();
-        const groups = [];
-        stickers.forEach(s => {
-            if (visited.has(s)) return;
-            const g = [], stack = [s];
-            visited.add(s);
-            while (stack.length) {
-                const cur = stack.pop();
-                g.push(cur);
-                stickers.forEach(o => {
-                    if (!visited.has(o) && near(cur, o)) {
-                        visited.add(o); stack.push(o);
-                    }
-                });
-            }
-            groups.push(g);
-        });
-        return groups;
-    }
-
-    function analyzeMultiCharHangul(group) {
-        group.forEach(s => s.classList.remove('role-cho', 'role-jung', 'role-jong'));
-
-        const sortedStickers = [...group].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-        const rawVowels = sortedStickers.filter(s => vowels.includes(s.textContent) || "ㅘㅙㅚㅝㅞㅟㅢ".includes(s.textContent));
-        const rawConsonants = sortedStickers.filter(s => consonants.includes(s.textContent));
-
-        if (rawVowels.length === 0) return null;
-
-        let nuclei = [];
-        let usedVowels = new Set();
-
-        for (let i = 0; i < rawVowels.length; i++) {
-            if (usedVowels.has(rawVowels[i])) continue;
-            
-            let v1 = rawVowels[i];
-            let nucleus = {
-                vowels: [v1],
-                text: v1.textContent,
-                centerX: 0, centerY: 0,
-                cho: [], jong: [] 
-            };
-            usedVowels.add(v1);
-
-            if (i + 1 < rawVowels.length) {
-                let v2 = rawVowels[i+1];
-                let r1 = v1.getBoundingClientRect();
-                let r2 = v2.getBoundingClientRect();
-                
-                if (Math.abs(r1.right - r2.left) < 60 && !usedVowels.has(v2)) {
-                    let key = v1.textContent + v2.textContent;
-                    if (DOUBLE_VOWELS[key]) {
-                        nucleus.vowels.push(v2);
-                        nucleus.text = DOUBLE_VOWELS[key];
-                        usedVowels.add(v2);
-                        i++;
-                    }
-                }
-            }
-            nuclei.push(nucleus);
-        }
-
-        nuclei.forEach(n => {
-            let minX = Math.min(...n.vowels.map(v => v.getBoundingClientRect().left));
-            let maxX = Math.max(...n.vowels.map(v => v.getBoundingClientRect().right));
-            let minY = Math.min(...n.vowels.map(v => v.getBoundingClientRect().top));
-            let maxY = Math.max(...n.vowels.map(v => v.getBoundingClientRect().bottom));
-            n.centerX = (minX + maxX) / 2;
-            n.centerY = (minY + maxY) / 2;
-            
-            if (detailedDebugOn) {
-                n.vowels.forEach(v => v.classList.add('role-jung'));
-            }
-        });
-
-        rawConsonants.forEach(c => {
-            let r = c.getBoundingClientRect();
-            let cx = r.left + r.width/2;
-            let cy = r.top + r.height/2;
-            
-            let closestNucleus = null;
-            let minDist = Infinity;
-
-            nuclei.forEach(n => {
-                let dx = cx - n.centerX;
-                let dy = cy - n.centerY;
-                let dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestNucleus = n;
-                }
-            });
-
-            if (closestNucleus) {
-                let dy = cy - closestNucleus.centerY;
-                if (dy > 30) {
-                    closestNucleus.jong.push(c);
-                } else {
-                    closestNucleus.cho.push(c);
-                }
-            }
-        });
-
-        let resultString = "";
-        
-        nuclei.forEach(n => {
-            let choChar = "ㅇ";
-            if (n.cho.length > 0) {
-                n.cho.sort((a,b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left);
-                choChar = n.cho[0].textContent;
-                if (detailedDebugOn) n.cho[0].classList.add('role-cho');
-            }
-
-            let jongChar = "";
-            if (n.jong.length > 0) {
-                n.jong.sort((a,b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-                
-                if (n.jong.length >= 2) {
-                    let key = n.jong[0].textContent + n.jong[1].textContent;
-                    if (DOUBLE_JONG[key]) {
-                        jongChar = DOUBLE_JONG[key];
-                        if (detailedDebugOn) {
-                            n.jong[0].classList.add('role-jong');
-                            n.jong[1].classList.add('role-jong');
-                        }
-                    } else {
-                        jongChar = n.jong[n.jong.length-1].textContent;
-                        if (detailedDebugOn) n.jong[n.jong.length-1].classList.add('role-jong');
-                    }
-                } else {
-                    jongChar = n.jong[0].textContent;
-                    if (detailedDebugOn) n.jong[0].classList.add('role-jong');
-                }
-            }
-
-            const choIdx = CHO_TABLE.indexOf(choChar);
-            const jungIdx = JUNG_TABLE.indexOf(n.text);
-            const jongIdx = jongChar ? JONG_TABLE.indexOf(jongChar) : 0;
-
-            if (choIdx !== -1 && jungIdx !== -1) {
-                resultString += String.fromCharCode(0xAC00 + (choIdx * 21 * 28) + (jungIdx * 28) + jongIdx);
-            } else {
-                resultString += n.text;
-            }
-        });
-
-        return resultString;
-    }
-
-    function calculateExpression(str) {
-        const tokens = str.replace('=', '').match(/(\d+|[+-])/g);
-        if (!tokens) return null;
-        let result = parseInt(tokens[0]);
-        for (let i = 1; i < tokens.length; i += 2) {
-            const operator = tokens[i];
-            const nextVal = parseInt(tokens[i + 1]);
-            if (isNaN(nextVal)) break;
-            if (operator === '+') result += nextVal;
-            if (operator === '-') result -= nextVal;
-        }
-        return result;
-    }
-
-    function convertNumberToKorean(numStr) {
-        if (numStr === '0') return '영';
-        const units = ['', '십', '백', '천', '만'];
-        const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
-        let result = '';
-        let num = parseInt(numStr);
-        let str = String(num);
-        let len = str.length;
-        if (len > 5) return numStr; 
-
-        for (let i = 0; i < len; i++) {
-            let n = parseInt(str[i]);
-            let unit = units[len - 1 - i];
-            if (n > 0) {
-                if (n === 1 && (len - 1 - i) > 0) {
-                    result += unit;
-                } else {
-                    result += digits[n] + unit;
-                }
-            }
-        }
-        return result;
-    }
-
-    // [신규 기능] 그룹 내 숫자 스티커들을 병합하여 분석
-    function analyzeNumberGroup(group) {
-        const sorted = [...group].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-        let tokens = [];
-        let currentNumber = "";
-        
-        sorted.forEach(s => {
-            const txt = s.textContent;
-            if (/\d/.test(txt)) {
-                // 숫자인 경우 계속 누적
-                currentNumber += txt;
-            } else {
-                // 숫자가 끊기면(연산자 등) 지금까지 누적된 숫자를 토큰에 추가
-                if (currentNumber) {
-                    tokens.push(currentNumber);
-                    currentNumber = "";
-                }
-                tokens.push(txt);
-            }
-        });
-        
-        // 마지막에 남은 숫자 처리
-        if (currentNumber) {
-            tokens.push(currentNumber);
-        }
-
-        // 토큰들을 변환하여 반환
-        return tokens.map(part => {
-             if (jamoNames[part]) return jamoNames[part]; // 연산자 변환
-             if (/^\d+$/.test(part)) return convertNumberToKorean(part); // 숫자 뭉치 변환
-             return part;
-        }).join(' ');
-    }
-
-    function getReadingText(group) {
-        const sorted = [...group].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-        const isHangulGroup = sorted.some(s => vowels.includes(s.textContent) || "ㅘㅙㅚㅝㅞㅟㅢ".includes(s.textContent));
-        
-        if (isHangulGroup) {
-            const res = analyzeMultiCharHangul(group);
-            if (res) return res;
-        } else {
-            // 한글이 아니면 색깔 제거
-            group.forEach(s => s.classList.remove('role-cho', 'role-jung', 'role-jong'));
-            // [변경됨] 숫자/연산자 그룹은 별도 병합 로직을 태움
-            return analyzeNumberGroup(group);
-        }
-
-        // Fallback (한글 분석 실패 시)
-        return analyzeNumberGroup(group);
-    }
-
-    function updateGroups() {
-        document.querySelectorAll('.group-box').forEach(d => d.remove());
-        
-        getGroups().forEach(g => {
-            const rects = g.map(s => s.getBoundingClientRect());
-            const b = board.getBoundingClientRect();
-            const minX = Math.min(...rects.map(r => r.left));
-            const minY = Math.min(...rects.map(r => r.top));
-            const maxX = Math.max(...rects.map(r => r.right));
-            const maxY = Math.max(...rects.map(r => r.bottom));
-
-            const box = document.createElement('div');
-            box.className = 'group-box';
-            box.style.left = (minX - b.left - 10) + 'px';
-            box.style.top = (minY - b.top - 10) + 'px';
-            box.style.width = (maxX - minX + 20) + 'px';
-            box.style.height = (maxY - minY + 20) + 'px';
-            
-            const label = document.createElement('div');
-            label.style = "position:absolute; top:-35px; background:#fff; padding:4px 8px; border-radius:8px; color:#722ed1; font-weight:bold; white-space:nowrap; border:2px solid #722ed1; box-shadow:0 2px 5px rgba(0,0,0,0.1);";
-            
-            label.textContent = getReadingText(g);
-            
-            box.appendChild(label);
-            board.appendChild(box);
-        });
-    }
-
-    calcBtn.onclick = () => {
-        document.querySelectorAll('.result').forEach(r => r.remove());
-        getGroups().forEach(g => {
-            const gSorted = [...g].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-            const expressionText = gSorted.map(s => s.textContent).join('');
-            if (expressionText.includes('=') && /[\d]/.test(expressionText)) {
-                const result = calculateExpression(expressionText);
-                if (result !== null) {
-                    const eqSticker = gSorted.find(s => s.textContent === '=');
-                    const r = document.createElement('div');
-                    r.className = 'sticker result'; 
-                    r.textContent = result;
-                    r.style.left = eqSticker.offsetLeft + 90 + 'px'; 
-                    r.style.top = eqSticker.offsetTop + 'px';
-                    r.style.zIndex = ++topZIndex;
-                    board.appendChild(r);
-                    enableMove(r);
-                    handleDoubleTouch(r);
-                }
-            }
-        });
-    };
-
-    readBtn.onclick = () => {
-        speechSynthesis.cancel();
-        const groups = getGroups().sort((a, b) => {
-            const aLeft = Math.min(...a.map(s => s.getBoundingClientRect().left));
-            const bLeft = Math.min(...b.map(s => s.getBoundingClientRect().left));
-            return aLeft - bLeft;
-        });
-
-        let i = 0;
-        function speak() {
-            if (i >= groups.length) return;
-            const txt = getReadingText(groups[i]);
-            const u = new SpeechSynthesisUtterance(txt);
-            u.lang = 'ko-KR';
-            u.onend = () => { i++; setTimeout(speak, 300); };
-            speechSynthesis.speak(u);
-        }
-        speak();
-    };
-
-    debugBtn.onclick = () => { 
-        debugOn = !debugOn; 
-        debugBtn.textContent = debugOn ? "영역 OFF" : "영역";
-        document.querySelectorAll('.debug-box').forEach(d => d.remove());
-        if(debugOn) {
-            document.querySelectorAll('.sticker').forEach(s => {
-                const r = s.getBoundingClientRect(); const b = board.getBoundingClientRect();
-                const d = document.createElement('div');
-                d.className = 'debug-box';
-                d.style.left = (r.left - b.left) + 'px';
-                d.style.top = (r.top - b.top) + 'px';
-                d.style.width = r.width + 'px';
-                d.style.height = r.height + 'px';
-                board.appendChild(d);
-            });
-        }
-    };
-    
-    debugResultBtn.onclick = () => { 
-        detailedDebugOn = !detailedDebugOn; 
-        debugResultBtn.textContent = detailedDebugOn ? "미리보기 ON" : "미리보기";
-        updateGroups(); 
-    };
-
-    resetBtn.onclick = () => {
-        speechSynthesis.cancel();
-        document.querySelectorAll('.sticker, .group-box, .debug-box').forEach(e => e.remove());
-        topZIndex = 100;
-    };
-</script>
 </body>
 </html>
