@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>말하는 시계 놀이 (키즈 UI 버전)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            min-height: 100vh; margin: 0; background-color: #f0f4f8; font-family: 'Nanum Gothic', sans-serif; 
+            overscroll-behavior: none; 
+        }
+        .main-container {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 40px; background: white; 
+            padding: 40px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            max-width: 90%;
+        }
+        canvas { 
+            cursor: pointer; touch-action: none; 
+            max-width: 100%; height: auto;
+            transition: transform 0.1s;
+        }
+        canvas:active { transform: scale(0.99); }
+        
+        .right-panel {
+            display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+
+        /* --- 디지털 시계 스타일 --- */
+        .digital-clock {
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            font-size: 4.5rem; font-weight: 800; color: #2d3748;
+            background: #edf2f7; padding: 25px 45px; border-radius: 20px;
+            min-width: 250px; border: 5px solid #4a5568;
+            user-select: none;
+            position: relative; 
+        }
+        .time-part {
+            cursor: pointer; padding: 0 10px; border-radius: 10px; transition: background 0.2s;
+            min-width: 80px; text-align: center; /* 숫자 너비 고정으로 UI 안정화 */
+            display: inline-block;
+        }
+        .time-part:hover { background-color: #cbd5e0; color: #2b6cb0; }
+        .colon { cursor: default; }
+
+        /* --- 팝업 UI (공통) --- */
+        .time-wrapper {
+            position: relative;
+        }
+
+        .mini-popover {
+            display: none;
+            position: absolute;
+            
+            /* [중요] 위치 고정 로직: 부모의 중앙 정렬 */
+            top: -20px; 
+            left: 50%;
+            transform: translateX(-50%);
+            
+            background: white;
+            border: 4px solid #4a5568;
+            border-radius: 20px;
+            padding: 15px;
+            z-index: 100;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            
+            /* 내용물에 따라 크기 결정되되 최소 너비 보장 */
+            width: max-content;
+            min-width: 180px;
+        }
+
+        /* 2열 배치 레이아웃 (시/분 공통 사용) */
+        .popover-cols {
+            display: flex;
+            gap: 15px; /* 열 사이 간격 넓힘 */
+            justify-content: center;
+        }
+
+        .popover-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px; /* 버튼 사이 간격 넓힘 */
+            flex: 1;
+        }
+
+        /* 버튼 스타일 (아이들을 위해 크게) */
+        .big-btn {
+            padding: 12px 20px; /* 터치 영역 대폭 확대 */
+            font-size: 1.5rem;  /* 글자 크기 확대 */
+            font-weight: 800;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f7fafc;
+            cursor: pointer;
+            text-align: center;
+            color: #4a5568;
+            min-width: 50px; /* 버튼 최소 너비 */
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .big-btn:hover { background: #edf2f7; }
+        .big-btn:active { transform: scale(0.95); }
+
+        /* 선택된 버튼 강조 */
+        .big-btn.active, .big-btn.active-tens, .big-btn.active-units {
+            background-color: #3182ce; 
+            color: white; 
+            border-color: #2b6cb0;
+            box-shadow: 0 4px 6px rgba(49, 130, 206, 0.3);
+        }
+        
+        /* 분 단위 중 일의 자리는 초록색으로 구분 */
+        .big-btn.active-units {
+            background-color: #38a169;
+            border-color: #2f855a;
+            box-shadow: 0 4px 6px rgba(56, 161, 105, 0.3);
+        }
+
+        /* --- 컨트롤 버튼 --- */
+        .controls { 
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; 
+            width: 100%;
+        }
+        button {
+            padding: 15px 10px; font-size: 1.1rem; cursor: pointer;
+            border: none; border-radius: 15px; color: white; 
+            transition: all 0.2s; font-weight: bold; touch-action: manipulation;
+            font-family: 'Nanum Gothic', sans-serif;
+        }
+        .btn-hour { background-color: #e53e3e; }
+        .btn-hour:hover { background-color: #c53030; }
+        .btn-minute { background-color: #3182ce; }
+        .btn-minute:hover { background-color: #2b6cb0; }
+        
+        .btn-now { 
+            background-color: #38a169; 
+            grid-column: span 3; 
+            font-size: 1.2rem; margin-bottom: 5px; padding: 18px;
+        }
+        .btn-now:hover { background-color: #2f855a; }
+        
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; padding: 20px; gap: 30px; }
+            .digital-clock { font-size: 3.5rem; padding: 20px 10px; width: 100%; box-sizing: border-box; }
+            #clockCanvas { width: 300px; height: 300px; }
+            
+            /* 모바일에서도 버튼 크기 유지 */
+            .big-btn { padding: 10px 15px; font-size: 1.3rem; }
+            .popover-cols { gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <canvas id="clockCanvas" width="420" height="420"></canvas>
+        
+        <div class="right-panel">
+            <div class="digital-clock">
+                <div class="time-wrapper">
+                    <span id="hourDisplay" class="time-part" onclick="toggleHourPopover()">10</span>
+                    <div id="hourPopover" class="mini-popover">
+                        <div class="popover-cols">
+                            <div id="hourCol1" class="popover-col"></div>
+                            <div id="hourCol2" class="popover-col"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <span class="colon" onclick="speakTime()">:</span>
+                
+                <div class="time-wrapper">
+                    <span id="minuteDisplay" class="time-part" onclick="toggleMinutePopover()">10</span>
+                    <div id="minutePopover" class="mini-popover">
+                        <div class="popover-cols">
+                            <div id="tensColumn" class="popover-col"></div>
+                            <div id="unitsColumn" class="popover-col"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="btn-now" onclick="setToCurrentTime()">현재 시간</button>
+
+                <button class="btn-hour" onclick="changeTime(-1, 0)">-1시간</button>
+                <button class="btn-minute" onclick="changeTime(0, -5)">-5분</button>
+                <button class="btn-minute" onclick="changeTime(0, -1)">-1분</button>
+                
+                <button class="btn-hour" onclick="changeTime(1, 0)">+1시간</button>
+                <button class="btn-minute" onclick="changeTime(0, 5)">+5분</button>
+                <button class="btn-minute" onclick="changeTime(0, 1)">+1분</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('clockCanvas');
+    const ctx = canvas.getContext('2d');
+    const hourDisplay = document.getElementById('hourDisplay');
+    const minuteDisplay = document.getElementById('minuteDisplay');
+    const buttons = document.querySelectorAll('.controls button');
+    
+    // 시(Hour) 팝업 요소
+    const hourPopover = document.getElementById('hourPopover');
+    const hourCol1 = document.getElementById('hourCol1');
+    const hourCol2 = document.getElementById('hourCol2');
+
+    // 분(Minute) 팝업 요소
+    const minutePopover = document.getElementById('minutePopover');
+    const tensColumn = document.getElementById('tensColumn');
+    const unitsColumn = document.getElementById('unitsColumn');
+    
+    let radius = canvas.width / 2;
+    let center = { x: radius, y: radius };
+
+    let hour = 10;
+    let minute = 10;
+    
+    let isDragging = false;
+    let isAnimating = false;
+    let activeHand = null;
+    let prevAngle = 0;
+
+    let selectedTens = 0;
+    let selectedUnits = 0;
+
+    const hands = {
+        hour: { len: radius * 0.5, width: 30 },
+        minute: { len: radius * 0.78, width: 20 }
+    };
+
+    // --- 시계 그리기 ---
+    function drawClock() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius - 15, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.strokeStyle = '#2d3748'; ctx.lineWidth = 10; ctx.stroke();
+
+        ctx.font = "bold 30px 'Nanum Gothic'"; ctx.fillStyle = "#2d3748";
+        ctx.textBaseline = "middle"; ctx.textAlign = "center";
+        for (let num = 1; num <= 12; num++) {
+            let ang = num * Math.PI / 6;
+            ctx.rotate(ang); ctx.translate(0, -radius * 0.75); ctx.rotate(-ang);
+            ctx.fillText(num.toString(), center.x, center.y);
+            ctx.rotate(ang); ctx.translate(0, radius * 0.75); ctx.rotate(-ang);
+        }
+
+        const mAngle = (minute * 6) * Math.PI / 180;
+        const hAngle = ((hour % 12 * 30) + (minute / 2)) * Math.PI / 180;
+
+        drawArrowHand(mAngle, hands.minute.len, 8, "#3182ce"); 
+        drawArrowHand(hAngle, hands.hour.len, 12, "#e53e3e");    
+
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = '#2d3748'; ctx.fill();
+
+        updateDigitalDisplay();
+    }
+
+    function drawArrowHand(angle, length, width, color) {
+        ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.strokeStyle = color; ctx.fillStyle = color;
+        ctx.lineWidth = width; ctx.lineCap = "round";
+        ctx.moveTo(0, 0); ctx.lineTo(0, -length + 20); ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(-width * 1.5, -length + 22);
+        ctx.lineTo(width * 1.5, -length + 22);
+        ctx.lineTo(0, -length);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+
+    function updateDigitalDisplay() {
+        const dHour = Math.floor(hour); 
+        const displayH = dHour === 0 ? 12 : dHour;
+        const dMinute = Math.round(minute);
+        const displayM = dMinute.toString().padStart(2, '0');
+        
+        hourDisplay.innerText = displayH;
+        minuteDisplay.innerText = displayM;
+    }
+
+    // --- 터치 및 드래그 ---
+    function isPointInHand(x, y, angle, length, width) {
+        const dx = x - center.x;
+        const dy = y - center.y;
+        const rotatedX = dx * Math.cos(-angle) - dy * Math.sin(-angle);
+        const rotatedY = dx * Math.sin(-angle) + dy * Math.cos(-angle);
+        return (Math.abs(rotatedX) <= width * 1.5 && rotatedY >= -length && rotatedY <= 20);
+    }
+
+    function getEventPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length > 0) {
+            clientX = e.changedTouches[0].clientX;
+            clientY = e.changedTouches[0].clientY;
+        }
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+
+    function handleStart(e) {
+        if (isAnimating) return;
+        if (e.type === 'touchstart') e.preventDefault();
+        
+        closeAllPopovers();
+
+        const pos = getEventPos(e);
+        const mAngle = (minute * 6) * Math.PI / 180;
+        const hAngle = ((hour % 12 * 30) + (minute / 2)) * Math.PI / 180;
+
+        if (isPointInHand(pos.x, pos.y, hAngle, hands.hour.len, hands.hour.width)) {
+            activeHand = 'hour'; isDragging = true; prevAngle = getAngle(pos.x, pos.y);
+        } else if (isPointInHand(pos.x, pos.y, mAngle, hands.minute.len, hands.minute.width)) {
+            activeHand = 'minute'; isDragging = true; prevAngle = getAngle(pos.x, pos.y);
+        }
+    }
+
+    function handleMove(e) {
+        if (!isDragging || isAnimating) return;
+        e.preventDefault(); 
+        
+        const pos = getEventPos(e);
+        const currentAngle = getAngle(pos.x, pos.y);
+        let angleDiff = currentAngle - prevAngle;
+
+        if (angleDiff > 180) angleDiff -= 360;
+        if (angleDiff < -180) angleDiff += 360;
+
+        if (activeHand === 'minute') {
+            minute = Math.round(currentAngle / 6) % 60;
+            if (prevAngle > 300 && currentAngle < 60) hour = (hour % 12) + 1;
+            else if (prevAngle < 60 && currentAngle > 300) hour = hour - 1 <= 0 ? 12 : hour - 1;
+        } else {
+            let totalMinutes = Math.round(currentAngle * 2);
+            let tempHour = Math.floor(totalMinutes / 60);
+            let tempMinute = totalMinutes % 60;
+            if (tempHour === 0) tempHour = 12; 
+            hour = tempHour;
+            minute = tempMinute;
+        }
+        prevAngle = currentAngle;
+        drawClock();
+    }
+
+    function handleEnd(e) {
+        if (isAnimating) return;
+
+        if (isDragging) {
+            speakTime();
+        } else {
+            const pos = getEventPos(e);
+            const dist = Math.sqrt((pos.x - center.x)**2 + (pos.y - center.y)**2);
+            if (dist <= radius - 10) speakTime();
+        }
+        isDragging = false; activeHand = null;
+    }
+
+    canvas.addEventListener('mousedown', handleStart);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('touchstart', handleStart, { passive: false });
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+
+    function getAngle(x, y) {
+        const dx = x - center.x;
+        const dy = y - center.y;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+        if (angle < 0) angle += 360;
+        return angle;
+    }
+
+    function animateTimeChange(startTotalMinutes, targetTotalMinutes) {
+        isAnimating = true;
+        buttons.forEach(btn => btn.disabled = true);
+        
+        closeAllPopovers();
+
+        let startTime = null;
+        const duration = 500;
+
+        function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const progress = Math.min((timestamp - startTime) / duration, 1);
+            const ease = progress * (2 - progress);
+            
+            let currentVal = startTotalMinutes + (targetTotalMinutes - startTotalMinutes) * ease;
+            while (currentVal < 0) currentVal += 720;
+            currentVal %= 720;
+
+            hour = Math.floor(currentVal / 60);
+            if (hour === 0) hour = 12;
+            minute = currentVal % 60;
+
+            drawClock();
+
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                isAnimating = false;
+                buttons.forEach(btn => btn.disabled = false);
+
+                let finalVal = targetTotalMinutes;
+                while (finalVal < 0) finalVal += 720;
+                finalVal %= 720;
+                hour = Math.floor(finalVal / 60);
+                if (hour === 0) hour = 12;
+                minute = Math.round(finalVal % 60);
+                
+                drawClock();
+                speakTime();
+            }
+        }
+        requestAnimationFrame(step);
+    }
+
+    function changeTime(h, m) {
+        if (isAnimating) return;
+        let currentTotal = (hour === 12 ? 0 : hour) * 60 + minute;
+        let targetTotal = currentTotal + (h * 60) + m;
+        animateTimeChange(currentTotal, targetTotal);
+    }
+
+    function setToCurrentTime() {
+        if (isAnimating) return;
+        const now = new Date();
+        let currentH = now.getHours();
+        let currentM = now.getMinutes();
+        
+        currentH = currentH % 12;
+        if (currentH === 0) currentH = 12;
+
+        let currentTotal = (hour === 12 ? 0 : hour) * 60 + minute;
+        let targetTotal = (currentH === 12 ? 0 : currentH) * 60 + currentM;
+
+        if (targetTotal - currentTotal > 360) targetTotal -= 720;
+        if (targetTotal - currentTotal < -360) targetTotal += 720;
+
+        animateTimeChange(currentTotal, targetTotal);
+    }
+
+    // ============================================
+    // [UI] 팝업 관리 로직 (크고 직관적인 UI)
+    // ============================================
+
+    // 1. 시(Hour) 팝업: 2열 배치 (1~6 / 7~12)
+    function toggleHourPopover() {
+        if (isAnimating) return;
+        if (hourPopover.style.display !== 'block') {
+            closeAllPopovers();
+            openHourPopover();
+        } else {
+            closeHourPopover();
+        }
+    }
+
+    function openHourPopover() {
+        renderHourButtons();
+        hourPopover.style.display = 'block';
+        setTimeout(() => document.addEventListener('click', handleOutsideClick), 0);
+    }
+
+    function closeHourPopover() {
+        hourPopover.style.display = 'none';
+        document.removeEventListener('click', handleOutsideClick);
+    }
+
+    function renderHourButtons() {
+        hourCol1.innerHTML = "";
+        hourCol2.innerHTML = "";
+        const currentHour = Math.floor(hour) === 0 ? 12 : Math.floor(hour);
+
+        // 왼쪽 열 (1~6)
+        for (let i = 1; i <= 6; i++) {
+            createHourBtn(i, currentHour, hourCol1);
+        }
+        // 오른쪽 열 (7~12)
+        for (let i = 7; i <= 12; i++) {
+            createHourBtn(i, currentHour, hourCol2);
+        }
+    }
+
+    function createHourBtn(i, currentHour, container) {
+        const btn = document.createElement("div");
+        btn.className = `big-btn ${i === currentHour ? 'active' : ''}`;
+        btn.innerText = i;
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            hour = i;
+            drawClock();
+            speakTime();
+            renderHourButtons();
+        };
+        container.appendChild(btn);
+    }
+
+    // 2. 분(Minute) 팝업: 2열 배치 (10단위 / 1단위)
+    function toggleMinutePopover() {
+        if (isAnimating) return;
+        if (minutePopover.style.display !== 'block') {
+            closeAllPopovers();
+            openMinutePopover();
+        } else {
+            closeMinutePopover();
+        }
+    }
+
+    function openMinutePopover() {
+        selectedTens = Math.floor(minute / 10); 
+        selectedUnits = Math.round(minute) % 10;
+        renderMinuteButtons();
+        minutePopover.style.display = 'block';
+        setTimeout(() => document.addEventListener('click', handleOutsideClick), 0);
+    }
+
+    function closeMinutePopover() {
+        minutePopover.style.display = 'none';
+        document.removeEventListener('click', handleOutsideClick);
+    }
+
+    function renderMinuteButtons() {
+        tensColumn.innerHTML = '';
+        unitsColumn.innerHTML = '';
+
+        // 왼쪽: 0~5 (10단위)
+        for (let i = 0; i <= 5; i++) {
+            const btn = document.createElement('div');
+            btn.className = `big-btn ${i === selectedTens ? 'active-tens' : ''}`;
+            btn.innerText = i;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                selectedTens = i;
+                updateMinuteImmediate();
+            };
+            tensColumn.appendChild(btn);
+        }
+
+        // 오른쪽: 0~9 (1단위)
+        for (let i = 0; i <= 9; i++) {
+            const btn = document.createElement('div');
+            btn.className = `big-btn ${i === selectedUnits ? 'active-units' : ''}`;
+            btn.innerText = i;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                selectedUnits = i;
+                updateMinuteImmediate();
+            };
+            unitsColumn.appendChild(btn);
+        }
+    }
+
+    function updateMinuteImmediate() {
+        const finalMinute = (selectedTens * 10) + selectedUnits;
+        minute = finalMinute;
+        renderMinuteButtons();
+        drawClock();
+        speakTime();
+    }
+
+    // 3. 공통 닫기 및 외부 클릭 처리
+    function closeAllPopovers() {
+        closeHourPopover();
+        closeMinutePopover();
+    }
+
+    function handleOutsideClick(e) {
+        const isHourTarget = hourPopover.contains(e.target) || e.target === hourDisplay;
+        const isMinuteTarget = minutePopover.contains(e.target) || e.target === minuteDisplay;
+
+        if (!isHourTarget && !isMinuteTarget) {
+            closeAllPopovers();
+        }
+    }
+
+    function speakTime() {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        const dHour = Math.floor(hour);
+        const hText = dHour === 0 ? 12 : dHour;
+        const dMinute = Math.round(minute);
+        let mText = dMinute === 0 ? "정각" : `${dMinute}분`;
+        const fullText = `${hText}시 ${mText}`;
+        
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(fullText);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0; 
+            window.speechSynthesis.speak(utterance);
+        }, 10);
+    }
+
+    drawClock();
+
+</script>
+</body>
+</html>
